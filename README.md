@@ -18,9 +18,9 @@ This is a banking management system built using Django. It provides features for
 python3 -m venv suliman_venv
 3. Activate venv
 source suliman_venv/bin/activate
-# if you need to deactivate the venv 
-# bash command - type: 
+# if you need to deactivate the venv: bash command - type: 
 deactivate 
+## Install dependencies: 
 4. Install dependencies:   
    cd suliman_banking_project3
    pip install -r requirements.txt
