@@ -19,7 +19,8 @@ python3 -m venv suliman_venv
 3. Activate venv
 source suliman_venv/bin/activate
 # if you need to deactivate the venv 
-# bash command - type: deactivate 
+# bash command - type: 
+deactivate 
 4. Install dependencies:   
    cd suliman_banking_project3
    pip install -r requirements.txt
