@@ -17,4 +17,5 @@ suliman_banking_project/
 │   ├── urls.py
 │   └── views.py
 │
-└── manage.py
+├── manage.py
+└── venv/
