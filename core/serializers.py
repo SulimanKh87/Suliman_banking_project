@@ -1,6 +1,7 @@
 # core/serializers.py
+# core/serializers.py
 from rest_framework import serializers
-from django.contrib.auth.models import User  # Import the User model
+from rest_framework.exceptions import ValidationError  # Import ValidationError
 from .models import UserProfile, Customer, BankAccount, Transaction, Loan, Currency, Bank
 
 
@@ -21,7 +22,7 @@ class CustomerSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user_data = validated_data.pop('user')
-        user = User.objects.create_user(**user_data)  # Correctly create a user
+        user = UserProfile.objects.create_user(**user_data)  # Create a UserProfile instance
         customer = Customer.objects.create(user=user, **validated_data)
         return customer
 
@@ -56,14 +57,19 @@ class TransactionSerializer(serializers.ModelSerializer):
         # Calculate the fee
         validated_data['fee'] = amount * fee_percentage
 
-        if validated_data['transaction_type'] == 'deposit':
-            account.deposit(amount)
-        elif validated_data['transaction_type'] == 'withdraw':
-            account.withdraw(amount)
-        elif validated_data['transaction_type'] == 'transfer':
-            target_account_id = validated_data.pop('target_account_id')
-            target_account = BankAccount.objects.get(id=target_account_id)
-            account.transfer(amount, target_account)
+        try:
+            if validated_data['transaction_type'] == 'deposit':
+                account.deposit(amount)
+            elif validated_data['transaction_type'] == 'withdraw':
+                account.withdraw(amount)
+            elif validated_data['transaction_type'] == 'transfer':
+                target_account_id = validated_data.pop('target_account_id')
+                target_account = BankAccount.objects.get(id=target_account_id)
+                account.transfer(amount, target_account)
+            else:
+                raise ValidationError("Invalid transaction type.")  # Use the imported ValidationError
+        except ValidationError as e:
+            raise serializers.ValidationError({"error": str(e)})
 
         account.save()
         return super().create(validated_data)

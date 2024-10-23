@@ -117,10 +117,12 @@ class Transaction(models.Model):
     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
     fee = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE)
+    fee_percentage = 0.02
 
     def save(self, *args, **kwargs):
         if self.transaction_type in ['withdraw', 'transfer']:
-            self.amount -= self.fee
+            self.fee = self.amount * self.fee_percentage
+            self.amount -= self.fee  # Adjust amount for fee
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -147,6 +149,9 @@ class Loan(models.Model):
         if self.amount <= 0:
             self.is_repaid = True
         self.save()
+
+    def get_loans(self):
+        return Loan.objects.filter(customer=self)
 
     def __str__(self):
         return f"Loan of {self.amount} to {self.customer.user.email}"

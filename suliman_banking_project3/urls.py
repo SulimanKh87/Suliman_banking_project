@@ -1,4 +1,3 @@
-
 """
 URL configuration for suliman_banking_project project.
 
@@ -15,7 +14,6 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-# suliman_banking_project/urls.py
 
 from django.contrib import admin  # Import the admin module
 from django.urls import path, include  # Import path and include from django.urls
@@ -23,6 +21,7 @@ from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
+# Configure the schema view for API documentation
 schema_view = get_schema_view(
     openapi.Info(
         title="Banking API",
@@ -36,9 +35,11 @@ schema_view = get_schema_view(
     permission_classes=[permissions.AllowAny],
 )
 
+# Define URL patterns for the project
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('api/', include('core.urls')),
-    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+    path('admin/', admin.site.urls),  # Admin interface
+    path('api/', include('core.urls')),  # Include URLs from the core app
+    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),  # Swagger UI for
+    # API docs
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),  # ReDoc for API docs
 ]
