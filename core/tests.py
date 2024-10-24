@@ -73,6 +73,7 @@ class BankAccountTests(APITestCase):
             'name': 'Bank Account User',
             'password': 'bankaccountpassword',
         }
+        # self.user = UserProfile.objects.create_user(**self.user_data)
         self.user = UserProfile.objects.create_user(**self.user_data)
 
         # Obtain a token for the user
