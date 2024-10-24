@@ -4,6 +4,9 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
+from rest_framework.views import APIView
+
+from .serializers import DepositSerializer
 from .models import UserProfile, Customer, BankAccount, Transaction, Loan, Bank
 from .serializers import (
     CustomerSerializer,
@@ -57,11 +60,12 @@ class BankAccountViewSet(viewsets.ModelViewSet):
         account.close()  # Close account logic in the model
         return Response({"message": "Account closed successfully."}, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=['post'])
-    def deposit(self, request, pk=None):  # Include pk for consistency
+    @action(detail=True, methods=['post'], url_path='deposit')  # Add this line
+    def deposit(self, request, pk=None):
         account = self.get_object()
         amount = request.data.get('amount')
-        account.deposit(amount)  # Deposit logic in the model
+        currency_code = request.data.get('currency')  # Ensure the currency is included
+        account.deposit(amount, currency_code)  # Implement the deposit method in the BankAccount model
         return Response({"message": "Deposit successful."}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'])
@@ -161,3 +165,21 @@ class UserProfileViewSet(viewsets.ModelViewSet):
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]
+
+
+class DepositView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, account_id):
+        try:
+            account = BankAccount.objects.get(id=account_id)  # Get the bank account
+        except BankAccount.DoesNotExist:
+            return Response({"error": "Bank account not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = DepositSerializer(data=request.data)
+        if serializer.is_valid():
+            amount = serializer.validated_data['amount']
+            currency_code = serializer.validated_data['currency']
+            account.deposit(amount, currency_code)  # Implement the deposit method in the BankAccount model
+            return Response({"message": "Deposit successful."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

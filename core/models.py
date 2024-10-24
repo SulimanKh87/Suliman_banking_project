@@ -69,7 +69,7 @@ class Currency(models.Model):
 class BankAccount(models.Model):
     id = models.AutoField(primary_key=True)  # Explicitly define the id field (optional)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     is_suspended = models.BooleanField(default=False)
 
     def close(self):
@@ -79,9 +79,13 @@ class BankAccount(models.Model):
         self.save()
 
     def deposit(self, amount, currency=None):
+        if self.is_suspended:
+            raise ValidationError("Account is suspended.")
         if amount <= 0:
             raise ValidationError("Deposit amount must be positive.")
         if currency:
+            if not isinstance(currency, Currency):
+                raise ValidationError("Invalid currency provided.")
             # Convert the amount based on currency exchange rate
             amount *= currency.exchange_rate
         self.balance += amount
@@ -89,6 +93,8 @@ class BankAccount(models.Model):
 
     def withdraw(self, amount, currency=None):
         if currency:
+            if not isinstance(currency, Currency):
+                raise ValidationError("Invalid currency provided.")
             amount *= currency.exchange_rate
         if self.balance - amount < -1000:  # Example limit for negative balance
             raise ValidationError("Insufficient funds or exceeds overdraft limit.")

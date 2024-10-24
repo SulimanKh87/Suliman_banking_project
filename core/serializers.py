@@ -1,8 +1,10 @@
 # core/serializers.py
-# core/serializers.py
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError  # Import ValidationError
+from rest_framework.exceptions import ValidationError
 from .models import UserProfile, Customer, BankAccount, Transaction, Loan, Currency, Bank
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 
 # UserProfile Serializer
@@ -94,3 +96,51 @@ class LoanSerializer(serializers.ModelSerializer):
         bank.grant_loan(amount)
         loan = Loan.objects.create(**validated_data)
         return loan
+
+
+class DepositView(APIView):
+    def post(self, request, account_id):
+        account = BankAccount.objects.get(id=account_id)  # Get the bank account
+        serializer = DepositSerializer(data=request.data)
+        if serializer.is_valid():
+            amount = serializer.validated_data['amount']
+            currency_code = serializer.validated_data['currency']
+            # Process deposit using the account object
+            # Make sure to implement deposit method in BankAccount model
+            account.deposit(amount, currency_code)
+            return Response({"message": "Deposit successful."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Deposit Serializer
+class DepositSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    currency = serializers.CharField(max_length=3)
+
+    @staticmethod
+    def validate_currency(value):
+        if not Currency.objects.filter(code=value).exists():
+            raise serializers.ValidationError("Invalid currency code.")
+        return value
+
+    def create(self, validated_data):
+        amount = validated_data['amount']
+        currency_code = validated_data['currency']
+
+        # Create a new transaction for the deposit
+        transaction = Transaction.objects.create(
+            account=self.context['account'],  # Assuming you're passing the account in context
+            amount=amount,
+            transaction_type='deposit',  # Assuming you have a field for the type of transaction
+            currency=currency_code
+        )
+        return transaction  # You might return the transaction or some other relevant data
+
+    def update(self, instance, validated_data):
+        # Here you might want to update an existing transaction if needed
+        instance.amount = validated_data.get('amount', instance.amount)
+        instance.currency = validated_data.get('currency', instance.currency)
+
+        # Save the updated instance
+        instance.save()
+        return instance

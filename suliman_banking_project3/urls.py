@@ -21,6 +21,7 @@ from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
+
 # Configure the schema view for API documentation
 schema_view = get_schema_view(
     openapi.Info(
@@ -42,4 +43,5 @@ urlpatterns = [
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),  # Swagger UI for
     # API docs
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),  # ReDoc for API docs
+    path('core/', include('core.urls')),  # Include the URLs from the core app
 ]
