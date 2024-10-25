@@ -3,9 +3,18 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager, PermissionsMixin, Group, Permission
 from django.core.exceptions import ValidationError
 
+""" 
+Custom User Manager
+Manages user creation, including normalizing emails and password hashing.
+"""
 
-# Custom User Manager
+
 class UserProfileManager(BaseUserManager):
+    """
+      Create a regular user with an email, name, and password.
+      Raises ValueError if email is not provided.
+      """
+
     def create_user(self, email, name, password=None):
         if not email:
             raise ValueError("Email must be provided")
@@ -18,6 +27,9 @@ class UserProfileManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, name, password):
+        """
+          Create a superuser with specific permissions.
+          """
         user = self.create_user(email, name, password)
         user.is_superuser = True
         user.is_staff = True
@@ -26,8 +38,17 @@ class UserProfileManager(BaseUserManager):
         return user
 
 
-# Custom User Model
+""" 
+Custom User Model
+Extends AbstractUser to create a custom user profile with additional fields.
+"""
+
+
 class UserProfile(AbstractUser, PermissionsMixin):
+    """
+    Custom User Model
+    Extends AbstractUser to create a custom user profile with additional fields.
+    """
     email = models.EmailField(max_length=255, unique=True)
     name = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
@@ -55,6 +76,10 @@ class UserProfile(AbstractUser, PermissionsMixin):
 
 
 class Customer(models.Model):
+    """
+    Customer Model
+    Represents a customer profile linked to a UserProfile.
+    """
     user = models.OneToOneField(UserProfile, on_delete=models.CASCADE)
     phone = models.CharField(max_length=20)
     address = models.CharField(max_length=255)
@@ -64,6 +89,10 @@ class Customer(models.Model):
 
 
 class Currency(models.Model):
+    """
+    Currency Model
+    Represents a currency type with its exchange rate against NIS.
+    """
     code = models.CharField(max_length=3, unique=True)  # E.g., 'USD', 'EUR'
     exchange_rate = models.DecimalField(max_digits=10, decimal_places=4)  # Rate against NIS
 
@@ -72,16 +101,29 @@ class Currency(models.Model):
 
 
 class BankAccount(models.Model):
+    """
+    BankAccount Model
+    Represents a bank account linked to a customer.
+    """
     id = models.AutoField(primary_key=True)  # Explicitly define the id field (optional)
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
     balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     is_suspended = models.BooleanField(default=False)
+
+    """
+            Close the account if the balance is not negative.
+            """
 
     def close(self):
         if self.balance < 0:
             raise ValidationError("Cannot close account with negative balance.")
         self.is_suspended = True
         self.save()
+
+    """ 
+    Deposit an amount into the account, adjusting for currency if provided.
+    Raises ValidationError for various error conditions.
+    """
 
     def deposit(self, amount, currency=None):
         if self.is_suspended:
@@ -96,6 +138,11 @@ class BankAccount(models.Model):
         self.balance += amount
         self.save()
 
+    """ 
+    Withdraw an amount from the account, adjusting for currency if provided.
+    Raises ValidationError for insufficient funds or invalid conditions.
+    """
+
     def withdraw(self, amount, currency=None):
         if currency:
             if not isinstance(currency, Currency):
@@ -106,15 +153,29 @@ class BankAccount(models.Model):
         self.balance -= amount
         self.save()
 
+    """ 
+    Transfer an amount to another bank account.
+    """
+
     def transfer(self, to_account, amount, currency=None):
         self.withdraw(amount, currency)
         to_account.deposit(amount, currency)
+
+    """ 
+    Get the current balance of the account.
+    """
 
     def get_balance(self):
         return self.balance
 
     def __str__(self):
         return f"Account {self.id} - {self.customer.user.email}"
+
+
+""" 
+Transaction Model
+Represents a financial transaction related to a bank account.
+"""
 
 
 class Transaction(models.Model):
@@ -129,6 +190,9 @@ class Transaction(models.Model):
     fee = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE)
     fee_percentage = 0.02
+    """ 
+    Override save method to calculate fees for withdraw and transfer transactions.
+    """
 
     def save(self, *args, **kwargs):
         if self.transaction_type in ['withdraw', 'transfer']:
@@ -140,16 +204,30 @@ class Transaction(models.Model):
         return f"{self.transaction_type.capitalize()} - {self.amount}"
 
 
+""" 
+Loan Model
+Represents a loan issued to a customer.
+"""
+
+
 class Loan(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     is_repaid = models.BooleanField(default=False)
+
+    """ 
+     Clean method to enforce loan constraints.
+     """
 
     def clean(self):
         if self.amount > 50000:
             raise ValidationError("Maximum loan is 50,000 NIS")
         if self.amount <= 0:
             raise ValidationError("Loan amount must be positive.")
+
+    """ 
+    Repay part of the loan.
+    """
 
     def repay(self, repayment_amount):
         if repayment_amount <= 0:
@@ -161,6 +239,10 @@ class Loan(models.Model):
             self.is_repaid = True
         self.save()
 
+    """ 
+    Get all loans for the customer.
+    """
+
     def get_loans(self):
         return Loan.objects.filter(customer=self)
 
@@ -168,8 +250,18 @@ class Loan(models.Model):
         return f"Loan of {self.amount} to {self.customer.user.email}"
 
 
+""" 
+Bank Model
+Represents the bank's finances.
+"""
+
+
 class Bank(models.Model):
     balance = models.DecimalField(max_digits=15, decimal_places=2, default=10000000)  # Starting balance for the bank
+    """ 
+    Grant a loan from the bank's balance.
+    Raises ValidationError if insufficient funds.
+    """
 
     def grant_loan(self, loan_amount):
         if self.balance - loan_amount < 0:

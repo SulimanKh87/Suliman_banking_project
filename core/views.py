@@ -17,30 +17,48 @@ from .serializers import (
 
 # Customer ViewSet
 class CustomerViewSet(viewsets.ModelViewSet):
+    """
+       ViewSet for handling CRUD operations for Customer instances.
+       """
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
+        """
+               Create a new customer instance.
+               """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
+        """
+         Update an existing customer instance.
+         """
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
+        """
+          Delete a customer instance.
+          """
         return super().destroy(request, *args, **kwargs)
 
 
 class BankAccountViewSet(viewsets.ModelViewSet):
+    """
+       ViewSet for managing operations related to bank accounts, including deposits.
+       """
     queryset = BankAccount.objects.all()
     serializer_class = BankAccountSerializer
 
     @action(detail=True, methods=['post'])
     def deposit(self, request, pk=None):
-        print(f"Debugging: Depositing to account with pk: {pk}")
+        """
+             Handle deposits to a bank account.
+             """
+        # print(f"Debugging: Depositing to account with pk: {pk}")
         account = self.get_object()  # Fetch the account using the primary key (pk)
 
         # Check if the account is suspended
@@ -61,22 +79,34 @@ class BankAccountViewSet(viewsets.ModelViewSet):
 
 # Transaction ViewSet
 class TransactionViewSet(viewsets.ModelViewSet):
+    """
+        ViewSet for handling CRUD operations for transactions related to accounts.
+        """
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        """
+              Return transactions associated with the authenticated user's accounts.
+              """
         user = self.request.user
         return Transaction.objects.filter(account__customer__user=user)
 
 
 # Loan ViewSet
 class LoanViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing loan operations including creation and repayments.
+    """
     queryset = Loan.objects.all()
     serializer_class = LoanSerializer
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
+        """
+             Create a new loan if the bank has sufficient funds.
+             """
         amount = request.data.get('amount')
         bank = Bank.objects.first()  # Assuming only one bank instance
 
@@ -91,12 +121,21 @@ class LoanViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
+        """
+           Update an existing loan instance.
+           """
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
+        """
+              Delete a loan instance.
+              """
         return super().destroy(request, *args, **kwargs)
 
     def repay(self, request, pk=None):  # Include pk parameter for consistency
+        """
+         Handle loan repayment for a specific loan instance.
+         """
         loan = self.get_object()
         repayment_amount = request.data.get('repayment_amount')
         loan.repay(repayment_amount)  # Repay logic in the model
@@ -104,6 +143,9 @@ class LoanViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def get_customer_loans(customer_id):
+        """
+             Retrieve all loans associated with a specific customer.
+             """
         loans = Loan.objects.filter(customer__id=customer_id)
         serializer = LoanSerializer(loans, many=True)
         return Response(serializer.data)
@@ -111,9 +153,15 @@ class LoanViewSet(viewsets.ModelViewSet):
 
 # Loan Repayment ViewSet
 class LoanRepaymentViewSet(viewsets.ViewSet):
+    """
+    ViewSet specifically for managing loan repayment requests.
+    """
     permission_classes = [IsAuthenticated]
 
     def create(self, request, pk=None):
+        """
+           Process a loan repayment for a specified loan.
+           """
         loan = Loan.objects.get(pk=pk)
         repayment_amount = request.data.get('repayment_amount')
 
@@ -126,6 +174,9 @@ class LoanRepaymentViewSet(viewsets.ViewSet):
 
 # User Profile ViewSet
 class UserProfileViewSet(viewsets.ModelViewSet):
+    """
+      ViewSet for handling CRUD operations for user profiles.
+      """
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = [IsAuthenticated]

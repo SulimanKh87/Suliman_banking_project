@@ -10,6 +10,12 @@ from django.core.validators import MinLengthValidator, MaxLengthValidator
 
 # UserProfile Serializer
 class UserProfileSerializer(serializers.ModelSerializer):
+    """
+      Serializer for UserProfile model.
+
+      Handles the serialization and validation of UserProfile instances,
+      including password hashing and validation of name and password lengths.
+      """
     password = serializers.CharField(
         write_only=True,
         validators=[
@@ -30,6 +36,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']  # Make 'id' read-only
 
     def create(self, validated_data):
+        """
+          Create a new UserProfile instance.
+
+          Populates the UserProfile with validated data, hashes the password,
+          and saves the user. Returns the created user instance.
+          """
         password = validated_data.pop('password')
         user = UserProfile(**validated_data)
         user.set_password(password)
@@ -39,6 +51,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 # Customer Serializer
 class CustomerSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Customer model.
+
+    Handles the serialization and validation of Customer instances,
+    including nested serialization for the associated UserProfile.
+    """
     user = UserProfileSerializer()
 
     class Meta:
@@ -47,6 +65,13 @@ class CustomerSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']  # Make 'id' read-only
 
     def create(self, validated_data):
+        """
+             Create a new Customer instance.
+
+             Extracts user data, creates a UserProfile instance, and then
+             creates a Customer instance with the remaining validated data.
+             Returns the created customer instance.
+             """
         user_data = validated_data.pop('user')
         user = UserProfileSerializer().create(user_data)
         customer = Customer.objects.create(user=user, **validated_data)
@@ -55,6 +80,13 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 # BankAccount Serializer
 class BankAccountSerializer(serializers.ModelSerializer):
+    """
+    Serializer for BankAccount model.
+
+    Handles the serialization of BankAccount instances,
+    restricting access to 'id' and 'customer' fields to read-only.
+    """
+
     class Meta:
         model = BankAccount
         fields = ['id', 'customer', 'balance', 'is_suspended']
@@ -63,6 +95,13 @@ class BankAccountSerializer(serializers.ModelSerializer):
 
 # Currency Serializer
 class CurrencySerializer(serializers.ModelSerializer):
+    """
+      Serializer for Currency model.
+
+      Handles the serialization of Currency instances, including fields
+      for currency code and exchange rate.
+      """
+
     class Meta:
         model = Currency
         fields = ['id', 'code', 'exchange_rate']
@@ -70,6 +109,12 @@ class CurrencySerializer(serializers.ModelSerializer):
 
 # Transaction Serializer
 class TransactionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Transaction model.
+
+    Handles the serialization and validation of Transaction instances,
+    including calculating transaction fees based on type and amount.
+    """
     currency = serializers.PrimaryKeyRelatedField(queryset=Currency.objects.all())
 
     class Meta:
@@ -79,11 +124,24 @@ class TransactionSerializer(serializers.ModelSerializer):
 
     @staticmethod
     def validate_transaction_type(value):
+        """
+               Validate the transaction type.
+
+               Ensures the transaction type is one of the allowed values
+               (deposit, withdraw, or transfer). Raises a validation error if not.
+               """
         if value not in ['deposit', 'withdraw', 'transfer']:
             raise serializers.ValidationError("Invalid transaction type.")
         return value
 
     def create(self, validated_data):
+        """
+             Create a new Transaction instance.
+
+             Calculates the transaction fee based on the provided amount,
+             updates the account based on the transaction type (deposit, withdraw,
+             or transfer), and saves the transaction. Returns the created transaction.
+             """
         account = validated_data['account']
         fee_percentage = 0.02
         amount = validated_data['amount']
@@ -111,11 +169,24 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 # Loan Serializer
 class LoanSerializer(serializers.ModelSerializer):
+    """
+      Serializer for Loan model.
+
+      Handles the serialization and validation of Loan instances,
+      including checks on loan amounts and bank fund availability.
+      """
+
     class Meta:
         model = Loan
         fields = ['id', 'customer', 'amount', 'is_repaid']
 
     def create(self, validated_data):
+        """
+            Create a new Loan instance.
+
+            Validates the requested loan amount and checks if the bank
+            has sufficient funds. If valid, creates and returns the Loan instance.
+            """
         bank = Bank.objects.first()
         amount = validated_data['amount']
 
@@ -132,16 +203,34 @@ class LoanSerializer(serializers.ModelSerializer):
 
 # Deposit Serializer
 class DepositSerializer(serializers.Serializer):
+    """
+      Serializer for handling deposit operations.
+
+      Validates the deposit amount and currency, and creates
+      corresponding Transaction instances.
+      """
     amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     currency = serializers.CharField(max_length=3)
 
     @staticmethod
     def validate_currency(value):
+        """
+              Validate the currency code.
+
+              Checks if the currency code exists in the Currency model.
+              Raises a validation error if the currency is invalid.
+              """
         if not Currency.objects.filter(code__iexact=value).exists():
             raise serializers.ValidationError("Invalid currency code.")
         return value
 
     def create(self, validated_data):
+        """
+        Create a new deposit transaction.
+
+        Extracts the amount and currency, creates a Transaction instance
+        for the deposit, and returns the created transaction.
+        """
         amount = validated_data['amount']
         currency_code = validated_data['currency']
         currency = Currency.objects.get(code=currency_code)
@@ -155,6 +244,12 @@ class DepositSerializer(serializers.Serializer):
         return transaction
 
     def update(self, instance, validated_data):
+        """
+        Update an existing deposit transaction.
+
+        Allows modification of the deposit amount and currency,
+        and saves the changes to the instance.
+        """
         instance.amount = validated_data.get('amount', instance.amount)
         instance.currency = validated_data.get('currency', instance.currency)
         instance.save()
@@ -162,9 +257,25 @@ class DepositSerializer(serializers.Serializer):
 
 
 # Deposit View
+
+
 class DepositView(APIView):
+    """
+    View for handling deposit requests.
+
+    Processes POST requests to create deposits on a specific bank account.
+    """
+
     def post(self, request, account_id):
+        """
+        Handle a POST request for depositing into a bank account.
+
+        Fetches the account based on account_id, validates the request data
+        with DepositSerializer, and attempts to create a deposit.
+        Returns success or error responses accordingly.
+        """
         try:
+
             account = BankAccount.objects.get(id=account_id)
         except BankAccount.DoesNotExist:
             return Response({"error": "Account not found."}, status=status.HTTP_404_NOT_FOUND)
