@@ -43,3 +43,7 @@ pip install uritemplate==4.1.1
 pip install --upgrade drf-yasg
 # after installation, you can verify that the correct versions are installed by running:
 # pip list
+
+5. run tests.py
+ ```bash
+python manage.py test -v 2
