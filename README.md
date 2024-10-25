@@ -4,11 +4,12 @@
 This is a banking management system built using Django. It provides features for user management, bank account operations, loan management, and more.
 
 ## Features
-- User Management (Create, Update, Delete)
-- Bank Account Operations (Create, Suspend, Close)
-- Transaction Management (Deposit, Withdraw, Transfer)
-- Loan Management (Grant Loan, Loan Repayment)
-- Authentication for Customer Profiles
+- **User Management**: Create, Update, Delete users.
+- **Bank Account Operations**: Create, Suspend, Close accounts.
+- **Transaction Management**: Deposit, Withdraw, Transfer funds.
+- **Loan Management**: Grant loans and manage loan repayments.
+- **Authentication**: Secure access for customer profiles.
+
 
 ## Installation
 1. Clone the repository:
