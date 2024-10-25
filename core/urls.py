@@ -1,7 +1,6 @@
 from django.urls import path, include, re_path
 from rest_framework.routers import DefaultRouter
 from .views import CustomerViewSet, BankAccountViewSet, TransactionViewSet, LoanViewSet, LoanRepaymentViewSet
-from .views import DepositView
 
 # Initialize the default router
 router = DefaultRouter()
@@ -13,6 +12,10 @@ router.register(r'loans', LoanViewSet)
 # Define the URL patterns
 urlpatterns = [
     path('', include(router.urls)),
+    # Custom URL for loan repayment
     re_path(r'^loans/(?P<pk>[^/.]+)/repay/$', LoanRepaymentViewSet.as_view({'post': 'create'}), name='loan-repay'),
-    path('bankaccount/<int:account_id>/deposit/', DepositView.as_view(), name='bankaccount-deposit'),  # Deposit URL
+    # Custom URL for making a deposit, now handled by BankAccountViewSet
+    path('bankaccount/<int:account_id>/deposit/', BankAccountViewSet.as_view({'post': 'deposit'}), name='bankaccount'
+                                                                                                        '-deposit'),
+    # Deposit URL
 ]

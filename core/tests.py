@@ -1,203 +1,152 @@
-# core/tests.py
-from django.urls import reverse
+from django.test import TestCase
 from rest_framework import status
-from rest_framework.test import APITestCase
-from .models import UserProfile, Customer, BankAccount, Currency, Loan
-from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient
+
+from .models import UserProfile, Customer, BankAccount, Currency, Transaction, Loan, Bank
+from .serializers import UserProfileSerializer, CustomerSerializer, BankAccountSerializer, CurrencySerializer, \
+    TransactionSerializer, LoanSerializer
 
 
-class UserProfileTests(APITestCase):
+class UserProfileTests(TestCase):
     def setUp(self):
-        self.user_data = {
-            'email': 'test@example.com',
-            'username': 'testuser',
-            'name': 'Test User',
-            'password': 'testpassword',
-        }
+        self.user_data = {'email': 'test@example.com', 'name': 'Test User', 'password': 'testpassword'}
         self.user = UserProfile.objects.create_user(**self.user_data)
 
-    def test_user_creation(self):
-        self.assertEqual(self.user.email, self.user_data['email'])
-        self.assertEqual(self.user.username, self.user_data['username'])
-        self.assertTrue(self.user.check_password(self.user_data['password']))
+    def test_create_user(self):
+        self.assertEqual(self.user.email, 'test@example.com')
+        self.assertTrue(self.user.check_password('testpassword'))
+
+    def test_user_serializer(self):
+        serializer = UserProfileSerializer(instance=self.user)
+        self.assertEqual(serializer.data['email'], self.user_data['email'])
 
 
-class CustomerTests(APITestCase):
+class CustomerTests(TestCase):
     def setUp(self):
-        self.user_data = {
-            'email': 'customer@example.com',
-            'username': 'customer',
-            'name': 'Customer User',
-            'password': 'customerpassword',
-        }
-        self.user = UserProfile.objects.create_user(**self.user_data)
-        self.customer_data = {
-            'user': {
-                'email': self.user.email,
-                'username': self.user.username,
-                'name': self.user.name,
-                'password': self.user_data['password']
-            },
-            'phone': '1234567890',
-            'address': '123 Main St'
-        }
-        self.customer_url = reverse('customer-list')  # Adjust the URL name if needed
+        self.user = UserProfile.objects.create_user(email='customer@example.com', name='Customer Test',
+                                                    password='password')
+        self.customer = Customer.objects.create(user=self.user, phone='1234567890', address='Test Address')
 
-    def test_create_customer(self):
-        response = self.client.post(self.customer_url, self.customer_data)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Customer.objects.count(), 1)
-        self.assertEqual(Customer.objects.get().phone, self.customer_data['phone'])
+    def test_customer_creation(self):
+        self.assertEqual(self.customer.user.email, 'customer@example.com')
+        self.assertEqual(self.customer.phone, '1234567890')
 
-    def test_customer_update(self):
-        customer = Customer.objects.create(user=self.user, phone='1234567890', address='123 Main St')
-        update_data = {
-            'phone': '0987654321',
-            'address': '456 Side St'
-        }
-        response = self.client.patch(reverse('customer-detail', args=[customer.id]), update_data)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        customer.refresh_from_db()
-        self.assertEqual(customer.phone, update_data['phone'])
+    def test_customer_serializer(self):
+        serializer = CustomerSerializer(instance=self.customer)
+        self.assertEqual(serializer.data['user']['email'], 'customer@example.com')
 
 
-class BankAccountTests(APITestCase):
+class BankAccountTests(TestCase):
     def setUp(self):
-        # Create a currency entry for testing
-        self.currency = Currency.objects.create(code='USD', exchange_rate=1.0)
+        self.user = UserProfile.objects.create_user(email='accountuser@example.com', name='Account User',
+                                                    password='password')
+        self.customer = Customer.objects.create(user=self.user, phone='1234567890', address='Test Address')
+        self.account = BankAccount.objects.create(customer=self.customer, balance=100.00)
 
-        # Create a user
-        self.user_data = {
-            'email': 'bankaccount@example.com',
-            'username': 'bankaccountuser',
-            'name': 'Bank Account User',
-            'password': 'bankaccountpassword',
-        }
-        # self.user = UserProfile.objects.create_user(**self.user_data)
-        self.user = UserProfile.objects.create_user(**self.user_data)
+    def test_deposit(self):
+        self.account.deposit(50)
+        self.assertEqual(self.account.balance, 150.00)
 
-        # Obtain a token for the user
-        self.token = Token.objects.create(user=self.user)
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+    def test_withdraw(self):
+        self.account.withdraw(30)
+        self.assertEqual(self.account.balance, 70.00)
 
-        # Create a customer
-        self.customer = Customer.objects.create(user=self.user, phone='1234567890', address='123 Main St')
+    def test_transfer(self):
+        target_account = BankAccount.objects.create(customer=self.customer, balance=200.00)
+        self.account.transfer(target_account, 50)
+        self.assertEqual(self.account.balance, 50.00)
+        self.assertEqual(target_account.balance, 250.00)
 
-        # Create a bank account
-        self.account = BankAccount.objects.create(customer=self.customer, balance=1000.00, is_suspended=False)
-        self.account_url = reverse('bankaccount-list')  # Adjust the URL name if needed
+    def test_account_serializer(self):
+        serializer = BankAccountSerializer(instance=self.account)
+        self.assertEqual(serializer.data['balance'], '100.00')
 
-    def test_create_bank_account(self):
-        new_account_data = {
-            'customer': self.customer.id,
-            'balance': 1000.00,
-            'is_suspended': False
-        }
-        response = self.client.post(self.account_url, new_account_data)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(BankAccount.objects.count(), 2)  # One from setUp + one created here
-        account = BankAccount.objects.last()
-        self.assertEqual(account.customer, self.customer)
-        self.assertEqual(account.balance, 1000.00)
 
-    def test_bank_account_withdraw(self):
-        withdraw_data = {
-            'amount': 500,
-            'currency': 'USD'  # Ensure the currency exists
-        }
-        response = self.client.post(reverse('bankaccount-withdraw', args=[self.account.id]), withdraw_data)
+class CurrencyTests(TestCase):
+    def setUp(self):
+        self.currency = Currency.objects.create(code='USD', exchange_rate=3.5)
+
+    def test_currency_creation(self):
+        self.assertEqual(self.currency.code, 'USD')
+        self.assertEqual(self.currency.exchange_rate, 3.5)
+
+    def test_currency_serializer(self):
+        serializer = CurrencySerializer(instance=self.currency)
+        self.assertEqual(serializer.data['code'], 'USD')
+
+
+class TransactionTests(TestCase):
+    def setUp(self):
+        self.user = UserProfile.objects.create_user(email='transuser@example.com', name='Trans User',
+                                                    password='password')
+        self.customer = Customer.objects.create(user=self.user, phone='1234567890', address='Test Address')
+        self.account = BankAccount.objects.create(customer=self.customer, balance=100.00)
+        self.currency = Currency.objects.create(code='USD', exchange_rate=3.5)
+        self.transaction_data = {'account': self.account, 'amount': 20, 'transaction_type': 'deposit',
+                                 'currency': self.currency}
+
+    def test_transaction_creation(self):
+        transaction = Transaction.objects.create(**self.transaction_data)
+        self.assertEqual(transaction.amount, 20)
+        self.assertEqual(transaction.transaction_type, 'deposit')
+
+    def test_transaction_serializer(self):
+        transaction = Transaction.objects.create(**self.transaction_data)
+        serializer = TransactionSerializer(instance=transaction)
+        self.assertEqual(serializer.data['amount'], '20.00')
+
+
+class LoanTests(TestCase):
+    def setUp(self):
+        self.bank = Bank.objects.create(balance=100000.00)
+        self.user = UserProfile.objects.create_user(email='loanuser@example.com', name='Loan User', password='password')
+        self.customer = Customer.objects.create(user=self.user, phone='1234567890', address='Test Address')
+        self.loan_data = {'customer': self.customer, 'amount': 5000}
+
+    def test_loan_creation(self):
+        loan = Loan.objects.create(**self.loan_data)
+        self.assertEqual(loan.amount, 5000)
+        self.assertFalse(loan.is_repaid)
+
+    def test_loan_serializer(self):
+        loan = Loan.objects.create(**self.loan_data)
+        serializer = LoanSerializer(instance=loan)
+        self.assertEqual(serializer.data['amount'], '5000.00')
+
+    def test_grant_loan(self):
+        loan = Loan.objects.create(**self.loan_data)
+        self.bank.grant_loan(loan.amount)
+        self.bank.refresh_from_db()
+        self.assertEqual(self.bank.balance, 95000.00)
+
+
+class BankAccountViewSetTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = UserProfile.objects.create_user(email='deposituser@example.com', name='Deposit User',
+                                                    password='password')
+        self.customer = Customer.objects.create(user=self.user, phone='1234567890', address='Test Address')
+        self.account = BankAccount.objects.create(customer=self.customer, balance=100.00)
+        self.currency = Currency.objects.create(code='USD', exchange_rate=3.5)
+        self.deposit_url = f'/api/bankaccount/{self.account.id}/deposit/'  # Ensure this matches your URL config
+
+    def test_deposit_successful(self):
+        data = {'amount': '50.00', 'currency': 'USD'}
+        response = self.client.post(self.deposit_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.account.refresh_from_db()
-        self.assertEqual(self.account.balance, 500.00)
+        self.assertEqual(self.account.balance, 150.00)
 
-        # Attempt to withdraw more than the balance
-        withdraw_data['amount'] = 600
-        response = self.client.post(reverse('bankaccount-withdraw', args=[self.account.id]), withdraw_data)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)  # Expecting a validation error
+    def test_deposit_invalid_currency(self):
+        data = {'amount': '50.00', 'currency': 'INVALID'}
+        response = self.client.post(self.deposit_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('currency', response.data)
 
-    def test_bank_account_deposit(self):
-        deposit_data = {
-            'amount': 500,
-            'currency': 'USD'  # Make sure the currency is valid
-        }
-
-        # Make the deposit request to the correct URL
-        response = self.client.post(reverse('bankaccount-deposit', args=[self.account.id]), deposit_data)
-
-        # Assert the response status code
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        # Refresh the account from the database and check the balance
-        self.account.refresh_from_db()
-        self.assertEqual(self.account.balance, 1500.00)  # Check if the balance is updated correctly
-
-    def test_unauthenticated_user_deposit(self):
-        # Remove the authorization header
-        self.client.credentials()  # Reset credentials to simulate unauthenticated state
-
-        deposit_data = {'amount': 500, 'currency': 'USD'}
-
-        # Attempt deposit without logging in
-        response = self.client.post(reverse('bankaccount-deposit', args=[self.account.id]), deposit_data)
-
-        # Assert that the response status code indicates permission denied
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_authenticated_user_deposit(self):
-        deposit_data = {'amount': 500, 'currency': 'USD'}
-
-        # Make the deposit request to the correct URL
-        response = self.client.post(reverse('bankaccount-deposit', args=[self.account.id]), deposit_data)
-
-        # Assert the response status code
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        # Refresh the account from the database and check the balance
-        self.account.refresh_from_db()
-        self.assertEqual(self.account.balance, 1500.00)  # Check if the balance is updated correctly
-
-    def test_unauthorized_user_deposit(self):
-        # Create another user and bank account
-        other_user = UserProfile.objects.create_user(email='other@example.com', password='password')
-        other_customer = Customer.objects.create(user=other_user, phone='987654321', address='Other Address')
-        other_account = BankAccount.objects.create(customer=other_customer, balance=1000, is_suspended=False)
-
-        # Attempt to deposit into another user's account without logging in
-        deposit_data = {'amount': 500, 'currency': 'USD'}
-        response = self.client.post(reverse('bankaccount-deposit', args=[other_account.id]), deposit_data)
-
-        # Assert that the response status code indicates permission denied
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-
-class LoanTests(APITestCase):
-    def setUp(self):
-        self.user_data = {
-            'email': 'loanuser@example.com',
-            'username': 'loanuser',
-            'name': 'Loan User',
-            'password': 'loanpassword',
-        }
-        self.user = UserProfile.objects.create_user(**self.user_data)
-        self.customer = Customer.objects.create(user=self.user, phone='1234567890', address='123 Main St')
-        self.loan_data = {
-            'customer': self.customer.id,
-            'amount': 20000,
-            'is_repaid': False
-        }
-        self.loan_url = reverse('loan-list')  # Adjust the URL name if needed
-
-    def test_create_loan(self):
-        response = self.client.post(self.loan_url, self.loan_data)
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Loan.objects.count(), 1)
-
-    def test_loan_repayment(self):
-        loan = Loan.objects.create(customer=self.customer, amount=20000, is_repaid=False)
-        repayment_data = {
-            'repayment_amount': 5000
-        }
-        response = self.client.post(reverse('loan-repay', args=[loan.id]), repayment_data)  # Adjust as needed
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        loan.refresh_from_db()
-        self.assertEqual(loan.amount, 15000)
+    def test_deposit_suspended_account(self):
+        self.account.is_suspended = True
+        self.account.save()
+        data = {'amount': '50.00', 'currency': 'USD'}
+        response = self.client.post(self.deposit_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)

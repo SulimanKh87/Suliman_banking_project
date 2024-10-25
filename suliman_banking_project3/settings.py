@@ -35,7 +35,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'core',  # This should match the name of your app
+    'core',
     'rest_framework',
     'rest_framework.authtoken',
     'drf_yasg',
