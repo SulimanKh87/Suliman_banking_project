@@ -1,7 +1,7 @@
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
-
+from decimal import Decimal
 from .models import UserProfile, Customer, BankAccount, Currency, Transaction, Loan, Bank
 from .serializers import UserProfileSerializer, CustomerSerializer, BankAccountSerializer, CurrencySerializer, \
     TransactionSerializer, LoanSerializer
@@ -125,28 +125,28 @@ class BankAccountViewSetTests(TestCase):
         self.client = APIClient()
         self.user = UserProfile.objects.create_user(email='deposituser@example.com', name='Deposit User',
                                                     password='password')
+        self.client.login(email='deposituser@example.com', password='password')
         self.customer = Customer.objects.create(user=self.user, phone='1234567890', address='Test Address')
         self.account = BankAccount.objects.create(customer=self.customer, balance=100.00)
-        self.currency = Currency.objects.create(code='USD', exchange_rate=3.5)
-        self.deposit_url = f'/api/bankaccount/{self.account.id}/deposit/'  # Ensure this matches your URL config
+        self.deposit_url = f'/api/accounts/{self.account.id}/deposit/'
 
     def test_deposit_successful(self):
-        data = {'amount': '50.00', 'currency': 'USD'}
+        data = {'amount': Decimal('50.00')}
         response = self.client.post(self.deposit_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.account.refresh_from_db()
-        self.assertEqual(self.account.balance, 150.00)
+        self.assertEqual(self.account.balance, Decimal('150.00'))
 
-    def test_deposit_invalid_currency(self):
-        data = {'amount': '50.00', 'currency': 'INVALID'}
+    def test_deposit_invalid_amount(self):
+        data = {'amount': Decimal('-50.00')}
         response = self.client.post(self.deposit_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('currency', response.data)
+        self.assertIn('error', response.data)
 
     def test_deposit_suspended_account(self):
         self.account.is_suspended = True
         self.account.save()
-        data = {'amount': '50.00', 'currency': 'USD'}
+        data = {'amount': Decimal('50.00')}
         response = self.client.post(self.deposit_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('error', response.data)

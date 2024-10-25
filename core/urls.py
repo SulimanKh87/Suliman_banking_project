@@ -15,7 +15,5 @@ urlpatterns = [
     # Custom URL for loan repayment
     re_path(r'^loans/(?P<pk>[^/.]+)/repay/$', LoanRepaymentViewSet.as_view({'post': 'create'}), name='loan-repay'),
     # Custom URL for making a deposit, now handled by BankAccountViewSet
-    path('bankaccount/<int:account_id>/deposit/', BankAccountViewSet.as_view({'post': 'deposit'}), name='bankaccount'
-                                                                                                        '-deposit'),
-    # Deposit URL
+    path('bankaccount/<int:account_id>/deposit/', BankAccountViewSet.as_view({'post': 'deposit'}), name='bankaccount-deposit'),  # Deposit URL
 ]
