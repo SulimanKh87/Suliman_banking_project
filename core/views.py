@@ -1,11 +1,13 @@
 # core/views.py
 from rest_framework import viewsets, status
+from rest_framework.authentication import TokenAuthentication
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
 from decimal import Decimal
 from rest_framework.decorators import action
 from .models import UserProfile, Customer, BankAccount, Transaction, Loan, Bank
+from .permissions import IsOwnerOrReadOnly
 from .serializers import (
     CustomerSerializer,
     BankAccountSerializer,
@@ -87,9 +89,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        """
-              Return transactions associated with the authenticated user's accounts.
-              """
+        """ Return transactions associated with the authenticated user's accounts. """
         user = self.request.user
         return Transaction.objects.filter(account__customer__user=user)
 
@@ -174,9 +174,15 @@ class LoanRepaymentViewSet(viewsets.ViewSet):
 
 # User Profile ViewSet
 class UserProfileViewSet(viewsets.ModelViewSet):
-    """
-      ViewSet for handling CRUD operations for user profiles.
-      """
-    queryset = UserProfile.objects.all()
+    """ ViewSet for handling CRUD operations for user profiles.
+        Only allow authenticated users to edit their own profile data."""
     serializer_class = UserProfileSerializer
-    permission_classes = [IsAuthenticated]
+    authentication_classes = [TokenAuthentication]
+    # IsAuthenticated will allow the user to perform the actions defined in,
+    # on their own profile
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+
+    def get_queryset(self):
+        user = self.request.user
+        return UserProfile.objects.filter(user=user)
+    # queryset = UserProfile.objects.all()

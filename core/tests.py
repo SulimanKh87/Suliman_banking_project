@@ -150,3 +150,72 @@ class BankAccountViewSetTests(TestCase):
         response = self.client.post(self.deposit_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('error', response.data)
+
+
+class LoanViewSetTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.bank = Bank.objects.create(balance=100000.00)
+        self.user = UserProfile.objects.create_user(email='loanuser@example.com', name='Loan User', password='password')
+        self.client.login(email='loanuser@example.com', password='password')
+        self.customer = Customer.objects.create(user=self.user, phone='1234567890', address='Test Address')
+        self.loan_data = {'customer': self.customer.id, 'amount': 5000}
+        self.loan_url = '/api/loans/'
+
+    def test_create_loan_successful(self):
+        response = self.client.post(self.loan_url, self.loan_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['amount'], '5000.00')
+
+    def test_create_loan_insufficient_bank_funds(self):
+        self.bank.balance = 1000  # Set bank balance lower than loan amount
+        self.bank.save()
+        response = self.client.post(self.loan_url, self.loan_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)
+
+    def test_loan_repayment_invalid_amount(self):
+        # Create a loan for the customer first with valid fields
+        loan = Loan.objects.create(customer=self.customer, amount=3000)  # Adjust based on your model
+        repayment_url = f'/api/loans/{loan.id}/repay/'
+        data = {'repayment_amount': 6000}  # More than the loan amount
+
+        # Make the request to repay the loan
+        response = self.client.post(repayment_url, data, format='json')
+
+        # Check that the response is a bad request
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)  # Ensure that an error key exists in the response
+
+    def test_loan_repayment_successful(self):
+        # Create a loan for the customer first, ensuring that self.loan_data does not include 'customer'
+        self.loan_data = {'amount': 3000}  # Adjust according to your Loan model fields
+        loan = Loan.objects.create(customer=self.customer, **self.loan_data)  # This should work now
+
+        repayment_url = f'/api/loans/{loan.id}/repay/'
+        data = {'repayment_amount': 1000}  # A valid repayment amount
+
+        # Make the request to repay the loan
+        response = self.client.post(repayment_url, data, format='json')
+
+        # Check that the response is successful
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Optionally, check if the loan balance is updated correctly
+        loan.refresh_from_db()  # Refresh the loan object from the database
+        self.assertEqual(loan.remaining_balance, 2000)  # Adjust based on your Loan model's logic
+
+
+def test_get_customer_loans(self):
+    # Create the customer first if not already created
+    self.customer = Customer.objects.create(name='Test Customer')  # Create a test customer
+
+    # Create loans for the customer
+    Loan.objects.create(customer=self.customer, amount=3000, interest_rate=5, duration=12)  # Add necessary fields
+    Loan.objects.create(customer=self.customer, amount=2000, interest_rate=5, duration=12)  # Add necessary fields
+
+    loans_url = f'/api/loans/customer/{self.customer.id}/'
+    response = self.client.get(loans_url)
+
+    self.assertEqual(response.status_code, status.HTTP_200_OK)
+    self.assertEqual(len(response.data), 2)  # Check if two loans are returned
