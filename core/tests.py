@@ -211,8 +211,10 @@ def test_get_customer_loans(self):
     self.customer = Customer.objects.create(name='Test Customer')  # Create a test customer
 
     # Create loans for the customer
-    Loan.objects.create(customer=self.customer, amount=3000, interest_rate=5, duration=12)  # Add necessary fields
-    Loan.objects.create(customer=self.customer, amount=2000, interest_rate=5, duration=12)  # Add necessary fields
+    Loan.objects.create(customer=self.customer, amount=3000)
+    Loan.objects.create(customer=self.customer, amount=2000)
+    # Loan.objects.create(customer=self.customer, amount=3000, interest_rate=5, duration=12)
+    # Loan.objects.create(customer=self.customer, amount=2000, interest_rate=5, duration=12)
 
     loans_url = f'/api/loans/customer/{self.customer.id}/'
     response = self.client.get(loans_url)

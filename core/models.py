@@ -212,18 +212,29 @@ Represents a loan issued to a customer.
 
 class Loan(models.Model):
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    is_repaid = models.BooleanField(default=False)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)  # Total loan amount
+    repaid_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # Amount repaid
+    is_repaid = models.BooleanField(default=False)  # Repayment status
+    # duration = models.IntegerField()  # Duration in months
+    # interest_rate = models.DecimalField(max_digits=5, decimal_places=2)  # Interest rate
+
+    @property
+    def remaining_balance(self):
+        return self.amount - self.repaid_amount  # Correct remaining balance calculation
 
     """ 
-     Clean method to enforce loan constraints.
-     """
+    Clean method to enforce loan constraints.
+    """
 
     def clean(self):
         if self.amount > 50000:
             raise ValidationError("Maximum loan is 50,000 NIS")
         if self.amount <= 0:
             raise ValidationError("Loan amount must be positive.")
+        if self.duration <= 0:
+            raise ValidationError("Loan duration must be positive.")
+        if self.interest_rate < 0:
+            raise ValidationError("Interest rate cannot be negative.")
 
     """ 
     Repay part of the loan.
@@ -232,11 +243,14 @@ class Loan(models.Model):
     def repay(self, repayment_amount):
         if repayment_amount <= 0:
             raise ValidationError("Repayment amount must be positive.")
-        if repayment_amount > self.amount:
-            raise ValidationError("Repayment amount cannot exceed loan amount.")
-        self.amount -= repayment_amount
-        if self.amount <= 0:
+        if repayment_amount > self.remaining_balance:  # Check against remaining balance
+            raise ValidationError("Repayment amount cannot exceed remaining balance.")
+
+        self.repaid_amount += repayment_amount  # Update repaid amount
+
+        if self.remaining_balance <= 0:  # If fully repaid
             self.is_repaid = True
+
         self.save()
 
     """ 
