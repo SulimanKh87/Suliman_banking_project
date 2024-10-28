@@ -231,10 +231,10 @@ class Loan(models.Model):
             raise ValidationError("Maximum loan is 50,000 NIS")
         if self.amount <= 0:
             raise ValidationError("Loan amount must be positive.")
-        if self.duration <= 0:
-            raise ValidationError("Loan duration must be positive.")
-        if self.interest_rate < 0:
-            raise ValidationError("Interest rate cannot be negative.")
+        # if self.duration <= 0:
+        #     raise ValidationError("Loan duration must be positive.")
+        # if self.interest_rate < 0:
+        #     raise ValidationError("Interest rate cannot be negative.")
 
     """ 
     Repay part of the loan.
