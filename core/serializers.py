@@ -119,7 +119,17 @@ class CurrencySerializer(serializers.ModelSerializer):
     class Meta:
         model = Currency
         fields = ['id', 'code', 'exchange_rate']
-        read_only_fields = ['id', 'code']  # This needs update to allow api to change exchange rate
+        read_only_fields = ['id', 'code']
+
+        # change rate is writeable to allow api to edit it daily for bonus task
+        # help to log unusual hack attempts to the exchange rate
+        def validate_exchange_rate(self, value):
+            if value <= 0:
+                raise serializers.ValidationError("Exchange rate must be positive.")
+            if value > 100:
+                raise serializers.ValidationError("Exchange rate seems unusually high.")
+            return value
+
 
 # Transaction Serializer
 class TransactionSerializer(serializers.ModelSerializer):
