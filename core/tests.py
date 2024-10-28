@@ -205,6 +205,60 @@ class LoanViewSetTests(TestCase):
         loan.refresh_from_db()  # Refresh the loan object from the database
         self.assertEqual(loan.remaining_balance, 2000)  # Adjust based on your Loan model's logic
 
+    def test_get_customer_loans(self):
+        # Create the customer first if not already created
+        self.customer = Customer.objects.create(user=self.user, phone='1234567890', address='Test Address')
+
+        # Create loans for the customer
+        Loan.objects.create(customer=self.customer, amount=3000)
+        Loan.objects.create(customer=self.customer, amount=2000)
+
+        loans_url = f'/api/loans/customer/{self.customer.id}/'
+        response = self.client.get(loans_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)  # Check if two loans are returned
+
+    def test_get_loan_details(self):
+        # Create a loan for the customer first
+        loan = Loan.objects.create(customer=self.customer, amount=3000)
+        loan_url = f'/api/loans/{loan.id}/'
+
+        response = self.client.get(loan_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['amount'], '3000.00')
+
+    def test_loan_not_found(self):
+        loan_id = 9999  # Assuming this ID does not exist
+        loan_url = f'/api/loans/{loan_id}/'
+
+        response = self.client.get(loan_url)
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_update_loan(self):
+        # Create a loan first
+        loan = Loan.objects.create(customer=self.customer, amount=3000)
+        loan_url = f'/api/loans/{loan.id}/'
+        data = {'amount': 4000}  # Update the loan amount
+
+        response = self.client.patch(loan_url, data, format='json')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        loan.refresh_from_db()
+        self.assertEqual(loan.amount, 4000)
+
+    def test_delete_loan(self):
+        # Create a loan first
+        loan = Loan.objects.create(customer=self.customer, amount=3000)
+        loan_url = f'/api/loans/{loan.id}/'
+
+        response = self.client.delete(loan_url)
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Loan.objects.filter(id=loan.id).exists())
+
 
 def test_get_customer_loans(self):
     # Create the customer first if not already created

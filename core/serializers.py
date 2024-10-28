@@ -107,28 +107,47 @@ class BankAccountSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'customer', 'is_suspended']
 
 
-# Currency Serializer
 class CurrencySerializer(serializers.ModelSerializer):
     """
-      Serializer for Currency model.
+    Serializer for Currency model.
 
-      Handles the serialization of Currency instances, including fields
-      for currency code and exchange rate.
-      """
+    Handles the serialization of Currency instances, including fields
+    for currency code and exchange rate.
+    """
 
     class Meta:
         model = Currency
         fields = ['id', 'code', 'exchange_rate']
-        read_only_fields = ['id', 'code']
+        read_only_fields = ['id', 'code']  # Make 'id' and 'code' read-only
 
-        # change rate is writeable to allow api to edit it daily for bonus task
-        # help to log unusual hack attempts to the exchange rate
-        def validate_exchange_rate(self, value):
-            if value <= 0:
-                raise serializers.ValidationError("Exchange rate must be positive.")
-            if value > 100:
-                raise serializers.ValidationError("Exchange rate seems unusually high.")
-            return value
+    def validate_exchange_rate(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Exchange rate must be positive.")
+        if value > 100:
+            raise serializers.ValidationError("Exchange rate seems unusually high.")
+        return value
+
+    def create(self, validated_data):
+        # Create a new Currency instance
+        return Currency.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        user = self.context['request'].user
+
+        # Ensure only admin users can update the exchange_rate
+        if 'exchange_rate' in validated_data and not user.is_superuser:
+            raise serializers.ValidationError("You do not have permission to edit the exchange rate.")
+
+        # Validate the exchange_rate if it's being updated
+        if 'exchange_rate' in validated_data:
+            validated_data['exchange_rate'] = self.validate_exchange_rate(validated_data['exchange_rate'])
+
+        # Update the instance fields
+        instance.code = validated_data.get('code', instance.code)
+        instance.exchange_rate = validated_data.get('exchange_rate', instance.exchange_rate)
+
+        instance.save()  # Save the updated instance
+        return instance
 
 
 # Transaction Serializer

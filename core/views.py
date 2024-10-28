@@ -50,17 +50,16 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
 class BankAccountViewSet(viewsets.ModelViewSet):
     """
-       ViewSet for managing operations related to bank accounts, including deposits.
-       """
+    ViewSet for managing operations related to bank accounts, including deposits and withdrawals.
+    """
     queryset = BankAccount.objects.all()
     serializer_class = BankAccountSerializer
 
     @action(detail=True, methods=['post'])
     def deposit(self, request, pk=None):
         """
-             Handle deposits to a bank account.
-             """
-        # print(f"Debugging: Depositing to account with pk: {pk}")
+        Handle deposits to a bank account.
+        """
         account = self.get_object()  # Fetch the account using the primary key (pk)
 
         # Check if the account is suspended
@@ -77,6 +76,32 @@ class BankAccountViewSet(viewsets.ModelViewSet):
         account.save()
 
         return Response({'success': 'Deposit successful', 'new_balance': account.balance}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def withdraw(self, request, pk=None):
+        """
+        Handle withdrawals from a bank account.
+        """
+        account = self.get_object()  # Fetch the account using the primary key (pk)
+
+        # Check if the account is suspended
+        if account.is_suspended:  # Assuming you have an `is_suspended` field in your model
+            return Response({'error': 'Cannot withdraw from a suspended account.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Ensure amount is provided in the request
+        amount = request.data.get('amount', 0)
+        if amount <= 0:
+            return Response({'error': 'Invalid withdrawal amount'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if there are sufficient funds for withdrawal
+        if account.balance < Decimal(amount):
+            return Response({'error': 'Insufficient funds for withdrawal'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update account balance
+        account.balance -= Decimal(amount)
+        account.save()
+
+        return Response({'success': 'Withdrawal successful', 'new_balance': account.balance}, status=status.HTTP_200_OK)
 
 
 # Transaction ViewSet
