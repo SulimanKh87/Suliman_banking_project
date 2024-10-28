@@ -33,7 +33,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = ['id', 'email', 'name', 'password', 'is_active', 'is_staff']
-        read_only_fields = ['id']  # Make 'id' read-only
+        read_only_fields = ['id', 'is_active', 'is_staff']  # Make 'id' read-only
 
     def create(self, validated_data):
         """
@@ -62,7 +62,21 @@ class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         fields = ['id', 'user', 'phone', 'address']
-        read_only_fields = ['id']  # Make 'id' read-only
+        read_only_fields = ['id']  # Make 'id' read-only, cannot be altered when creating or updating
+
+    """ example
+    {
+    "id1": 1, # is primary key for Customer
+    "user": {   
+        "id2": 1, # is primary key for User
+        "email": "user@example.com",
+        "name": "John Doe"
+    },
+    "phone": "123-456-7890",
+    "address": "123 Main Street"
+    }
+
+    """
 
     def create(self, validated_data):
         """
@@ -90,7 +104,7 @@ class BankAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = BankAccount
         fields = ['id', 'customer', 'balance', 'is_suspended']
-        read_only_fields = ['id', 'customer']
+        read_only_fields = ['id', 'customer', 'is_suspended']
 
 
 # Currency Serializer
@@ -105,7 +119,7 @@ class CurrencySerializer(serializers.ModelSerializer):
     class Meta:
         model = Currency
         fields = ['id', 'code', 'exchange_rate']
-
+        read_only_fields = ['id', 'code']  # This needs update to allow api to change exchange rate
 
 # Transaction Serializer
 class TransactionSerializer(serializers.ModelSerializer):
