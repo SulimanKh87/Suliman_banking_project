@@ -18,4 +18,7 @@ urlpatterns = [
     # Deposit URL
     path('bankaccount/<int:account_id>/deposit/',
          BankAccountViewSet.as_view({'post': 'deposit'}), name='bankaccount-deposit'),
+    # Withdraw URL
+    path('bankaccount/<int:account_id>/withdraw/',
+         BankAccountViewSet.as_view({'post': 'withdraw'}), name='bankaccount-withdraw'),
 ]
